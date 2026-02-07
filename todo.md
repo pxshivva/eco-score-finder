@@ -38,3 +38,9 @@
 - [x] Enhanced product search with real-time results
 - [x] Fully functional alternatives display on product detail page
 - [x] Search result filtering and sorting
+
+## QR/Barcode Scanning Enhancement
+- [x] Install jsQR library
+- [x] Implement real-time QR code detection from camera feed
+- [x] Add visual feedback for detected barcodes
+- [x] Test barcode scanning with various QR codes
