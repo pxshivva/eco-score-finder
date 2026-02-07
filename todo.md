@@ -29,3 +29,6 @@
 - [ ] Unit tests for core features
 - [ ] Integration tests for API calls
 - [ ] End-to-end testing of user flows
+
+## Bug Fixes
+- [x] Fix "Failed to find alternatives" API error on home page

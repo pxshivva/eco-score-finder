@@ -63,19 +63,25 @@ export async function fetchProductFromOpenFoodFacts(barcode: string): Promise<Ec
     const packagingSustainability = calculatePackagingSustainability(ecoScore);
     const carbonImpact = calculateCarbonImpact(ecoScore);
 
+    // Truncate long values to fit database constraints
+    const truncateString = (str: string | undefined, maxLength: number): string | undefined => {
+      if (!str) return undefined;
+      return str.length > maxLength ? str.substring(0, maxLength) : str;
+    };
+
     return {
       barcode,
-      name: product.product_name || 'Unknown Product',
-      brand: product.brands,
-      category: product.categories,
+      name: truncateString(product.product_name || 'Unknown Product', 255) || 'Unknown Product',
+      brand: truncateString(product.brands, 255),
+      category: truncateString(product.categories, 255),
       ecoScore,
-      ecoScoreGrade,
+      ecoScoreGrade: truncateString(ecoScoreGrade?.toUpperCase(), 10) || 'C',
       environmentalFootprint,
       packagingSustainability,
       carbonImpact,
-      imageUrl: product.image_url,
+      imageUrl: truncateString(product.image_url, 500),
       price: product.price,
-      country: product.countries,
+      country: truncateString(product.countries, 100),
     };
   } catch (error) {
     console.error(`[OpenFoodFacts] Error fetching product ${barcode}:`, error);
@@ -101,22 +107,30 @@ export async function searchProductsOpenFoodFacts(query: string, limit = 10) {
     const data = (await response.json()) as { products?: OpenFoodFactsProduct[] };
     const products = data.products || [];
 
-    return products
+    // Truncate long values to fit database constraints
+    const truncateString = (str: string | undefined, maxLength: number): string | undefined => {
+      if (!str) return undefined;
+      return str.length > maxLength ? str.substring(0, maxLength) : str;
+    };
+
+    const results = products
       .filter(p => p.code && p.product_name)
-      .map(product => ({
-        barcode: product.code,
-        name: product.product_name || 'Unknown',
-        brand: product.brands,
-        category: product.categories,
-        ecoScore: product.ecoscore_score ?? 50,
-        ecoScoreGrade: product.ecoscore_grade ?? 'C',
-        environmentalFootprint: calculateEnvironmentalFootprint(product.ecoscore_score ?? 50),
-        packagingSustainability: calculatePackagingSustainability(product.ecoscore_score ?? 50),
-        carbonImpact: calculateCarbonImpact(product.ecoscore_score ?? 50),
-        imageUrl: product.image_url,
-        price: product.price,
-        country: product.countries,
-      }));
+      .slice(0, limit);
+
+    return results.map(product => ({
+      barcode: product.code,
+      name: truncateString(product.product_name || 'Unknown Product', 255) || 'Unknown Product',
+      brand: truncateString(product.brands, 255),
+      category: truncateString(product.categories, 255),
+      ecoScore: product.ecoscore_score ?? 50,
+      ecoScoreGrade: truncateString((product.ecoscore_grade ?? 'C').toUpperCase(), 10) || 'C',
+      environmentalFootprint: calculateEnvironmentalFootprint(product.ecoscore_score ?? 50),
+      packagingSustainability: calculatePackagingSustainability(product.ecoscore_score ?? 50),
+      carbonImpact: calculateCarbonImpact(product.ecoscore_score ?? 50),
+      imageUrl: truncateString(product.image_url, 500),
+      price: product.price,
+      country: truncateString(product.countries, 100),
+    }));
   } catch (error) {
     console.error('[OpenFoodFacts] Error searching products:', error);
     return [];
