@@ -73,14 +73,18 @@ export default function Home() {
   };
 
   const handleProductClick = (barcode: string) => {
-    if (selectedProduct) {
+    // Find the product from search results or alternatives
+    const product = searchResults.find(p => p.barcode === barcode) || 
+                   (selectedProduct?.alternatives?.find((alt: any) => alt.barcode === barcode));
+    
+    if (product) {
       addToScanHistory({
-        barcode: selectedProduct.barcode,
-        name: selectedProduct.name,
-        brand: selectedProduct.brand,
-        ecoScore: selectedProduct.ecoScore,
-        ecoScoreGrade: selectedProduct.ecoScoreGrade,
-        imageUrl: selectedProduct.imageUrl,
+        barcode: product.barcode,
+        name: product.name,
+        brand: product.brand,
+        ecoScore: product.ecoScore,
+        ecoScoreGrade: product.ecoScoreGrade,
+        imageUrl: product.imageUrl,
       });
     }
     setLocation(`/product/${barcode}`);

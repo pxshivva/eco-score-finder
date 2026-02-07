@@ -104,3 +104,8 @@
 ## tRPC Client Error Suppression (Current)
 - [x] Add client-level error suppression for expected NOT_FOUND errors
 - [x] Prevent error tracking from reporting expected barcode scanning failures
+
+## Scan History Display Issue (Current)
+- [x] Debug why products aren't showing in scan history
+- [x] Fix localStorage data persistence
+- [x] Ensure products are properly added when clicking search results
