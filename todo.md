@@ -52,3 +52,6 @@
 - [x] Implement Code128 barcode detection
 - [x] Combine jsQR and Quagga2 for hybrid detection
 - [x] Test with various barcode formats
+
+## Bug Fixes (Current)
+- [x] Fix "Failed to search product" API error

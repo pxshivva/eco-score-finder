@@ -49,6 +49,10 @@ export const appRouter = router({
           return product;
         } catch (error) {
           console.error('Error searching product by barcode:', error);
+          // Re-throw TRPCError as-is
+          if (error instanceof TRPCError) {
+            throw error;
+          }
           throw new TRPCError({
             code: 'INTERNAL_SERVER_ERROR',
             message: 'Failed to search product',

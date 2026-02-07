@@ -48,11 +48,16 @@ export default function Home() {
       setScannedBarcode(null);
       setIsScanLoading(false);
     } else if (barcodeQuery.isError && scannedBarcode) {
-      alert('Product not found. Try searching manually.');
+      const errorMessage = barcodeQuery.error?.message || 'Unknown error';
+      if (errorMessage.includes('not found') || errorMessage.includes('NOT_FOUND')) {
+        alert(`Product not found in database (Barcode: ${scannedBarcode}). This product may not be in the Open Food Facts database yet. Try searching by product name instead.`);
+      } else {
+        alert(`Error: ${errorMessage}. Please try again.`);
+      }
       setScannedBarcode(null);
       setIsScanLoading(false);
     }
-  }, [barcodeQuery.data, barcodeQuery.isError, scannedBarcode]);
+  }, [barcodeQuery.data, barcodeQuery.isError, barcodeQuery.error, scannedBarcode]);
 
   const handleSearch = (e: React.ChangeEvent<HTMLInputElement>) => {
     setSearchQuery(e.target.value);
