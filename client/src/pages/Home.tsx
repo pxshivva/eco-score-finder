@@ -30,7 +30,11 @@ export default function Home() {
 
   const barcodeQuery = trpc.products.searchByBarcode.useQuery(
     { barcode: scannedBarcode || '' },
-    { enabled: !!scannedBarcode }
+    { 
+      enabled: !!scannedBarcode,
+      retry: false,
+      refetchOnWindowFocus: false,
+    }
   );
 
   const alternativesQuery = trpc.products.getAlternatives.useQuery(

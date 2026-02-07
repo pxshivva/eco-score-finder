@@ -83,3 +83,7 @@
 - [x] Add favorites button to scan history component
 - [x] Integrate favorites with existing Favorites page
 - [x] Test favorites workflow with multiple products
+
+## Error Handling Fix (Current)
+- [x] Suppress "Product not found" errors from error tracking system
+- [x] Improve tRPC error handling for expected NOT_FOUND cases
