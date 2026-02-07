@@ -100,3 +100,7 @@
 - [x] Fix scan history items not displaying on home page
 - [x] Ensure products are properly saved to scan history when clicked
 - [x] Display actual product names instead of "Unknown Product"
+
+## tRPC Client Error Suppression (Current)
+- [x] Add client-level error suppression for expected NOT_FOUND errors
+- [x] Prevent error tracking from reporting expected barcode scanning failures

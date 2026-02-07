@@ -25,6 +25,16 @@ queryClient.getQueryCache().subscribe(event => {
   if (event.type === "updated" && event.action.type === "error") {
     const error = event.query.state.error;
     redirectToLoginIfUnauthorized(error);
+    
+    // Suppress expected NOT_FOUND errors from barcode scanning
+    if (error instanceof TRPCClientError) {
+      const errorMessage = error.message || '';
+      if (errorMessage.includes('Product not found') || errorMessage.includes('NOT_FOUND')) {
+        console.debug('[API Query] Suppressed expected error:', errorMessage);
+        return;
+      }
+    }
+    
     console.error("[API Query Error]", error);
   }
 });
