@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Trash2, History } from 'lucide-react';
+import { Trash2, History, Heart } from 'lucide-react';
 import { getScanHistory, clearScanHistory, removeFromScanHistory, type ScanHistoryItem } from '@/lib/scanHistory';
+import { addToFavorites, removeFromFavorites, isInFavorites } from '@/lib/favorites';
 
 interface ScanHistoryProps {
   onProductSelect: (barcode: string) => void;
@@ -32,11 +33,20 @@ function formatTimeAgo(timestamp: number): string {
 export default function ScanHistory({ onProductSelect }: ScanHistoryProps) {
   const [history, setHistory] = useState<ScanHistoryItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [favorites, setFavorites] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     setIsLoading(true);
     const items = getScanHistory();
     setHistory(items);
+    
+    const favSet = new Set<string>();
+    items.forEach(item => {
+      if (isInFavorites(item.barcode)) {
+        favSet.add(item.barcode);
+      }
+    });
+    setFavorites(favSet);
     setIsLoading(false);
   }, []);
 
@@ -48,6 +58,31 @@ export default function ScanHistory({ onProductSelect }: ScanHistoryProps) {
     e.stopPropagation();
     removeFromScanHistory(barcode);
     setHistory(history.filter(item => item.barcode !== barcode));
+  };
+
+  const handleToggleFavorite = (item: ScanHistoryItem, e: React.MouseEvent) => {
+    e.stopPropagation();
+    const isFav = favorites.has(item.barcode);
+    
+    if (isFav) {
+      removeFromFavorites(item.barcode);
+      const newFavs = new Set(favorites);
+      newFavs.delete(item.barcode);
+      setFavorites(newFavs);
+    } else {
+      addToFavorites({
+        productId: 0,
+        barcode: item.barcode,
+        name: item.name,
+        brand: item.brand,
+        ecoScore: item.ecoScore,
+        ecoScoreGrade: item.ecoScoreGrade,
+        imageUrl: item.imageUrl,
+      });
+      const newFavs = new Set(favorites);
+      newFavs.add(item.barcode);
+      setFavorites(newFavs);
+    }
   };
 
   const handleClearHistory = () => {
@@ -141,15 +176,30 @@ export default function ScanHistory({ onProductSelect }: ScanHistoryProps) {
                 </span>
               </div>
 
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={(e) => handleRemoveItem(item.barcode, e)}
-                className="w-full h-7 text-xs text-gray-600 hover:text-red-600 hover:bg-red-50"
-              >
-                <Trash2 className="w-3 h-3 mr-1" />
-                Remove
-              </Button>
+              <div className="flex gap-1">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={(e) => handleToggleFavorite(item, e)}
+                  className={`flex-1 h-7 text-xs ${
+                    favorites.has(item.barcode)
+                      ? 'text-red-600 bg-red-50 hover:bg-red-100'
+                      : 'text-gray-600 hover:text-red-600 hover:bg-red-50'
+                  }`}
+                >
+                  <Heart className={`w-3 h-3 mr-1 ${favorites.has(item.barcode) ? 'fill-current' : ''}`} />
+                  {favorites.has(item.barcode) ? 'Saved' : 'Save'}
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={(e) => handleRemoveItem(item.barcode, e)}
+                  className="flex-1 h-7 text-xs text-gray-600 hover:text-red-600 hover:bg-red-50"
+                >
+                  <Trash2 className="w-3 h-3 mr-1" />
+                  Remove
+                </Button>
+              </div>
             </div>
           </Card>
         ))}

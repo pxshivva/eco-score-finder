@@ -56,7 +56,7 @@ export default function Home() {
         // Show contribution dialog when product not found
         setSelectedProduct({ barcode: scannedBarcode, name: 'Unknown Product', isContribution: true });
       } else {
-        alert(`Error: ${errorMessage}. Please try again.`);
+        console.error('[Home] Error searching product by barcode:', errorMessage);
       }
       setScannedBarcode(null);
       setIsScanLoading(false);
