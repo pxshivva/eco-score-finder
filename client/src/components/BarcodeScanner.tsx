@@ -1,8 +1,9 @@
 import { useState, useRef, useEffect } from 'react';
 import jsQR from 'jsqr';
+import Quagga from '@ericblade/quagga2';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
-import { Camera, X, Loader2, CheckCircle } from 'lucide-react';
+import { Camera, X, Loader2, CheckCircle, AlertCircle } from 'lucide-react';
 
 interface BarcodeScannerProps {
   onScan: (barcode: string) => void;
@@ -14,11 +15,14 @@ export default function BarcodeScanner({ onScan, isLoading }: BarcodeScannerProp
   const [isCameraActive, setIsCameraActive] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [detectedCode, setDetectedCode] = useState<string | null>(null);
+  const [detectedFormat, setDetectedFormat] = useState<string | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const animationFrameRef = useRef<number | null>(null);
+  const quaggaInitializedRef = useRef(false);
+  const lastDetectionRef = useRef<{ code: string; time: number } | null>(null);
 
   useEffect(() => {
     if (!isCameraActive) return;
@@ -56,10 +60,104 @@ export default function BarcodeScanner({ onScan, isLoading }: BarcodeScannerProp
       if (animationFrameRef.current) {
         cancelAnimationFrame(animationFrameRef.current);
       }
+      if (quaggaInitializedRef.current) {
+        try {
+          Quagga.stop();
+        } catch (e) {
+          // Ignore cleanup errors
+        }
+        quaggaInitializedRef.current = false;
+      }
     };
   }, [isCameraActive]);
 
   const startScanning = () => {
+    // Initialize Quagga for 1D barcode detection
+    try {
+      Quagga.init(
+        {
+          inputStream: {
+            name: 'Live',
+            type: 'LiveStream',
+            target: videoRef.current as unknown as HTMLElement,
+            constraints: {
+              facingMode: 'environment',
+              width: { ideal: 1280 },
+              height: { ideal: 720 },
+            },
+          },
+          decoder: {
+            readers: [
+              'ean_reader',
+              'ean_8_reader',
+              'upc_reader',
+              'upc_e_reader',
+              'code_128_reader',
+              'code_39_reader',
+              'code_39_vin_reader',
+              'codabar_reader',
+              'i2of5_reader',
+            ],
+            debug: {
+              drawBoundingBox: false,
+              showFrequency: false,
+              drawScanline: false,
+              showPattern: false,
+            },
+          },
+          locator: {
+            halfSample: true,
+            patchSize: 'medium' as const,
+          },
+          numOfWorkers: 2,
+        } as any,
+        (err: any) => {
+          if (err) {
+            console.error('Quagga initialization error:', err);
+            setError('Failed to initialize barcode scanner');
+            return;
+          }
+          quaggaInitializedRef.current = true;
+          Quagga.start();
+          startQRScanning();
+        }
+      );
+
+      Quagga.onDetected((result) => {
+        if (result.codeResult && result.codeResult.code) {
+          const code = result.codeResult.code;
+          const format = result.codeResult.format || 'unknown';
+          const now = Date.now();
+
+          // Debounce: avoid duplicate detections within 500ms
+          if (lastDetectionRef.current && lastDetectionRef.current.code === code && now - lastDetectionRef.current.time < 500) {
+            return;
+          }
+
+          lastDetectionRef.current = { code, time: now };
+          setDetectedCode(code);
+          setDetectedFormat(format);
+          setIsProcessing(true);
+
+          // Trigger callback after a short delay to show the detection
+          setTimeout(() => {
+            onScan(code);
+            setIsOpen(false);
+            setIsCameraActive(false);
+            setDetectedCode(null);
+            setDetectedFormat(null);
+            setIsProcessing(false);
+          }, 500);
+        }
+      });
+    } catch (err) {
+      console.error('Quagga setup error:', err);
+      // Fall back to QR-only scanning
+      startQRScanning();
+    }
+  };
+
+  const startQRScanning = () => {
     const scan = () => {
       if (videoRef.current && canvasRef.current && videoRef.current.readyState === videoRef.current.HAVE_ENOUGH_DATA) {
         const canvas = canvasRef.current;
@@ -86,8 +184,17 @@ export default function BarcodeScanner({ onScan, isLoading }: BarcodeScannerProp
         });
 
         if (code) {
-          // Found a QR code
+          const now = Date.now();
+          
+          // Debounce: avoid duplicate detections within 500ms
+          if (lastDetectionRef.current && lastDetectionRef.current.code === code.data && now - lastDetectionRef.current.time < 500) {
+            animationFrameRef.current = requestAnimationFrame(scan);
+            return;
+          }
+
+          lastDetectionRef.current = { code: code.data, time: now };
           setDetectedCode(code.data);
+          setDetectedFormat('QR Code');
           setIsProcessing(true);
           
           // Draw detection box
@@ -99,6 +206,7 @@ export default function BarcodeScanner({ onScan, isLoading }: BarcodeScannerProp
             setIsOpen(false);
             setIsCameraActive(false);
             setDetectedCode(null);
+            setDetectedFormat(null);
             setIsProcessing(false);
           }, 500);
           
@@ -140,8 +248,17 @@ export default function BarcodeScanner({ onScan, isLoading }: BarcodeScannerProp
     if (animationFrameRef.current) {
       cancelAnimationFrame(animationFrameRef.current);
     }
+    if (quaggaInitializedRef.current) {
+      try {
+        Quagga.stop();
+      } catch (e) {
+        // Ignore cleanup errors
+      }
+      quaggaInitializedRef.current = false;
+    }
     setIsCameraActive(false);
     setDetectedCode(null);
+    setDetectedFormat(null);
     setError(null);
   };
 
@@ -168,7 +285,7 @@ export default function BarcodeScanner({ onScan, isLoading }: BarcodeScannerProp
             <Camera className="w-16 h-16 text-white mx-auto mb-4" />
             <h2 className="text-2xl font-bold text-white mb-4">Scan Product Barcode</h2>
             <p className="text-gray-300 mb-8 max-w-md">
-              Point your camera at a product barcode or QR code to search for it instantly. The app will automatically detect and decode the code.
+              Point your camera at a product barcode to search instantly. Supports QR codes, EAN-13, UPC, Code128, and more.
             </p>
             <Button
               onClick={() => setIsCameraActive(true)}
@@ -222,13 +339,17 @@ export default function BarcodeScanner({ onScan, isLoading }: BarcodeScannerProp
                 <div>
                   <p className="font-semibold">Barcode Detected!</p>
                   <p className="text-sm">{detectedCode}</p>
+                  {detectedFormat && (
+                    <p className="text-xs text-green-200 mt-1">Format: {detectedFormat}</p>
+                  )}
                 </div>
               </div>
             )}
 
             {error && (
-              <div className="bg-red-500/20 border border-red-500 text-red-100 p-4 rounded-lg mb-4 text-sm">
-                {error}
+              <div className="bg-red-500/20 border border-red-500 text-red-100 p-4 rounded-lg mb-4 flex items-center gap-2">
+                <AlertCircle className="w-5 h-5 flex-shrink-0" />
+                <p className="text-sm">{error}</p>
               </div>
             )}
 
@@ -245,6 +366,12 @@ export default function BarcodeScanner({ onScan, isLoading }: BarcodeScannerProp
             <p className="text-gray-400 text-sm text-center mt-4">
               {detectedCode ? 'Barcode detected! Processing...' : 'Point camera at a barcode or QR code'}
             </p>
+            
+            <div className="mt-4 p-3 bg-blue-500/10 border border-blue-500/30 rounded-lg">
+              <p className="text-xs text-blue-200">
+                <strong>Supported formats:</strong> QR codes, EAN-13, UPC-A, UPC-E, Code128, Code39, Codabar, I2of5
+              </p>
+            </div>
           </div>
         )}
 

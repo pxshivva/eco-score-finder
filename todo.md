@@ -44,3 +44,11 @@
 - [x] Implement real-time QR code detection from camera feed
 - [x] Add visual feedback for detected barcodes
 - [x] Test barcode scanning with various QR codes
+
+## Extended Barcode Format Support (Quagga2)
+- [x] Install Quagga2 library
+- [x] Implement EAN-13 barcode detection
+- [x] Implement UPC barcode detection
+- [x] Implement Code128 barcode detection
+- [x] Combine jsQR and Quagga2 for hybrid detection
+- [x] Test with various barcode formats
