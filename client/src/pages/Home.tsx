@@ -1,13 +1,12 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/_core/hooks/useAuth';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { Card } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { Search, Leaf, TrendingUp, Heart } from 'lucide-react';
+import { Search, Leaf, TrendingUp, Heart, Loader2, X } from 'lucide-react';
 import { trpc } from '@/lib/trpc';
 import { getLoginUrl } from '@/const';
 import ProductCard from '@/components/ProductCard';
+import BarcodeScanner from '@/components/BarcodeScanner';
 import { useLocation } from 'wouter';
 
 export default function Home() {
@@ -15,6 +14,10 @@ export default function Home() {
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<any[]>([]);
   const [isSearching, setIsSearching] = useState(false);
+  const [selectedProduct, setSelectedProduct] = useState<any>(null);
+  const [showAlternatives, setShowAlternatives] = useState(false);
+  const [isScanLoading, setIsScanLoading] = useState(false);
+  const [scannedBarcode, setScannedBarcode] = useState<string | null>(null);
   const [, setLocation] = useLocation();
 
   const searchMutation = trpc.products.search.useQuery(
@@ -22,11 +25,34 @@ export default function Home() {
     { enabled: searchQuery.length > 2 }
   );
 
+  const barcodeQuery = trpc.products.searchByBarcode.useQuery(
+    { barcode: scannedBarcode || '' },
+    { enabled: !!scannedBarcode }
+  );
+
+  const alternativesQuery = trpc.products.getAlternatives.useQuery(
+    { barcode: selectedProduct?.barcode },
+    { enabled: !!selectedProduct?.barcode && showAlternatives }
+  );
+
   useEffect(() => {
     if (searchMutation.data) {
       setSearchResults(searchMutation.data);
+      setIsSearching(false);
     }
   }, [searchMutation.data]);
+
+  useEffect(() => {
+    if (barcodeQuery.data && scannedBarcode) {
+      handleProductClick(scannedBarcode);
+      setScannedBarcode(null);
+      setIsScanLoading(false);
+    } else if (barcodeQuery.isError && scannedBarcode) {
+      alert('Product not found. Try searching manually.');
+      setScannedBarcode(null);
+      setIsScanLoading(false);
+    }
+  }, [barcodeQuery.data, barcodeQuery.isError, scannedBarcode]);
 
   const handleSearch = (e: React.ChangeEvent<HTMLInputElement>) => {
     setSearchQuery(e.target.value);
@@ -35,6 +61,11 @@ export default function Home() {
 
   const handleProductClick = (barcode: string) => {
     setLocation(`/product/${barcode}`);
+  };
+
+  const handleBarcodeScanned = (barcode: string) => {
+    setIsScanLoading(true);
+    setScannedBarcode(barcode);
   };
 
   const getEcoScoreColor = (score: number | null | undefined) => {
@@ -55,32 +86,34 @@ export default function Home() {
     return 'Very Poor';
   };
 
+  if (authLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="animate-spin">
+          <div className="w-12 h-12 border-4 border-gray-200 border-t-green-500 rounded-full" />
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-green-50 to-emerald-50">
       {/* Header */}
-      <header className="sticky top-0 z-50 bg-white/80 backdrop-blur-md border-b border-gray-200">
+      <header className="bg-white/80 backdrop-blur-md border-b border-gray-200 sticky top-0 z-40">
         <div className="container mx-auto px-4 py-4 flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-green-500 to-emerald-600 flex items-center justify-center">
-              <Leaf className="w-6 h-6 text-white" />
-            </div>
+            <Leaf className="w-8 h-8 text-green-600" />
             <h1 className="text-2xl font-bold text-gray-900">EcoScore Finder</h1>
           </div>
           <div className="flex items-center gap-4">
             {isAuthenticated ? (
               <>
-                <Button
-                  variant="ghost"
-                  onClick={() => setLocation('/favorites')}
-                  className="gap-2"
-                >
+                <Button variant="ghost" onClick={() => setLocation('/favorites')} className="gap-2">
                   <Heart className="w-5 h-5" />
                   Favorites
                 </Button>
-                <Button
-                  variant="ghost"
-                  onClick={() => setLocation('/dashboard')}
-                >
+                <Button variant="ghost" onClick={() => setLocation('/dashboard')} className="gap-2">
+                  <TrendingUp className="w-5 h-5" />
                   Dashboard
                 </Button>
               </>
@@ -94,127 +127,237 @@ export default function Home() {
       </header>
 
       {/* Hero Section */}
-      <section className="py-16 px-4">
-        <div className="container mx-auto text-center">
-          <h2 className="text-5xl font-bold text-gray-900 mb-4">
+      <section className="container mx-auto px-4 py-16">
+        <div className="text-center mb-12">
+          <h2 className="text-4xl md:text-5xl font-bold text-gray-900 mb-4">
             Discover Sustainable Products
           </h2>
           <p className="text-xl text-gray-600 mb-8 max-w-2xl mx-auto">
             Make eco-conscious shopping decisions with real-time sustainability scores and find better alternatives that match your values.
           </p>
+        </div>
 
-          {/* Search Bar */}
-          <div className="max-w-2xl mx-auto mb-8">
-            <div className="relative">
-              <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-              <Input
-                type="text"
-                placeholder="Search products by name or barcode..."
-                value={searchQuery}
-                onChange={handleSearch}
-                className="pl-12 pr-4 py-3 text-lg rounded-lg border-2 border-gray-200 focus:border-green-500 focus:ring-0"
-              />
-            </div>
+        {/* Search and Scanner */}
+        <div className="max-w-2xl mx-auto mb-12 space-y-4">
+          <div className="relative">
+            <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+            <input
+              type="text"
+              placeholder="Search products by name or barcode..."
+              value={searchQuery}
+              onChange={handleSearch}
+              className="w-full pl-12 pr-4 py-3 border border-gray-300 rounded-lg focus:border-green-500 focus:ring-2 focus:ring-green-100 focus:outline-none text-lg"
+            />
           </div>
-
-          {/* Features */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
-            <Card className="p-6 text-center hover:shadow-lg transition-shadow">
-              <div className="w-12 h-12 rounded-lg bg-green-100 flex items-center justify-center mx-auto mb-4">
-                <Leaf className="w-6 h-6 text-green-600" />
-              </div>
-              <h3 className="font-semibold text-gray-900 mb-2">Eco-Scores</h3>
-              <p className="text-sm text-gray-600">Real-time sustainability ratings from 0-100</p>
-            </Card>
-            <Card className="p-6 text-center hover:shadow-lg transition-shadow">
-              <div className="w-12 h-12 rounded-lg bg-blue-100 flex items-center justify-center mx-auto mb-4">
-                <TrendingUp className="w-6 h-6 text-blue-600" />
-              </div>
-              <h3 className="font-semibold text-gray-900 mb-2">Alternatives</h3>
-              <p className="text-sm text-gray-600">Find better products at comparable prices</p>
-            </Card>
-            <Card className="p-6 text-center hover:shadow-lg transition-shadow">
-              <div className="w-12 h-12 rounded-lg bg-purple-100 flex items-center justify-center mx-auto mb-4">
-                <Heart className="w-6 h-6 text-purple-600" />
-              </div>
-              <h3 className="font-semibold text-gray-900 mb-2">Save & Compare</h3>
-              <p className="text-sm text-gray-600">Track favorites and compare side-by-side</p>
-            </Card>
+          <div className="flex justify-center">
+            <BarcodeScanner onScan={handleBarcodeScanned} isLoading={isScanLoading} />
           </div>
         </div>
-      </section>
 
-      {/* Search Results */}
-      {searchQuery.length > 2 && (
-        <section className="py-12 px-4">
-          <div className="container mx-auto">
-            <h3 className="text-2xl font-bold text-gray-900 mb-6">
-              Search Results {searchResults.length > 0 && `(${searchResults.length})`}
-            </h3>
+        {/* Feature Cards */}
+        {searchQuery.length === 0 && (
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
+            <Card className="p-8 text-center hover:shadow-lg transition-shadow">
+              <Leaf className="w-12 h-12 text-green-500 mx-auto mb-4" />
+              <h3 className="text-lg font-bold text-gray-900 mb-2">Eco-Scores</h3>
+              <p className="text-gray-600">Real-time sustainability ratings from 0-100</p>
+            </Card>
+            <Card className="p-8 text-center hover:shadow-lg transition-shadow">
+              <TrendingUp className="w-12 h-12 text-blue-500 mx-auto mb-4" />
+              <h3 className="text-lg font-bold text-gray-900 mb-2">Alternatives</h3>
+              <p className="text-gray-600">Find better products at comparable prices</p>
+            </Card>
+            <Card className="p-8 text-center hover:shadow-lg transition-shadow">
+              <Heart className="w-12 h-12 text-red-500 mx-auto mb-4" />
+              <h3 className="text-lg font-bold text-gray-900 mb-2">Save & Compare</h3>
+              <p className="text-gray-600">Track favorites and compare side-by-side</p>
+            </Card>
+          </div>
+        )}
+
+        {/* Search Results */}
+        {searchQuery.length > 2 && (
+          <div>
+            <h2 className="text-2xl font-bold text-gray-900 mb-6">
+              Search Results {searchMutation.isLoading && <Loader2 className="inline w-5 h-5 animate-spin ml-2" />}
+            </h2>
             {searchMutation.isLoading ? (
-              <div className="text-center py-12">
-                <div className="inline-block animate-spin">
-                  <div className="w-8 h-8 border-4 border-gray-200 border-t-green-500 rounded-full" />
+              <div className="flex items-center justify-center py-12">
+                <div className="animate-spin">
+                  <div className="w-12 h-12 border-4 border-gray-200 border-t-green-500 rounded-full" />
                 </div>
               </div>
             ) : searchResults.length > 0 ? (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              <div className="space-y-4">
                 {searchResults.map((product) => (
-                  <ProductCard
+                  <Card
                     key={product.barcode}
-                    product={product}
+                    className="p-6 hover:shadow-lg transition-shadow cursor-pointer"
                     onClick={() => handleProductClick(product.barcode)}
-                  />
+                  >
+                    <div className="flex gap-4">
+                      {product.imageUrl && (
+                        <img
+                          src={product.imageUrl}
+                          alt={product.name}
+                          className="w-24 h-24 object-cover rounded-lg"
+                          onError={(e) => {
+                            (e.target as HTMLImageElement).style.display = 'none';
+                          }}
+                        />
+                      )}
+                      <div className="flex-1">
+                        <h3 className="text-lg font-semibold text-gray-900">{product.name}</h3>
+                        <p className="text-sm text-gray-600 mb-2">{product.brand || 'Unknown Brand'}</p>
+                        <p className="text-xs text-gray-500 mb-3">{product.category || 'Uncategorized'}</p>
+                        <div className="flex items-center gap-4 flex-wrap">
+                          <div className="flex items-center gap-2">
+                            <div className={`w-12 h-12 rounded-full ${getEcoScoreColor(product.ecoScore)} flex items-center justify-center text-white font-bold text-lg`}>
+                              {product.ecoScore ?? 'N/A'}
+                            </div>
+                            <div>
+                              <p className="text-xs font-semibold text-gray-600">Eco-Score</p>
+                              <p className="text-sm font-bold text-gray-900">{getEcoScoreLabel(product.ecoScore)}</p>
+                            </div>
+                          </div>
+                          {product.price && (
+                            <div className="text-sm font-semibold text-gray-900">
+                              ${product.price}
+                            </div>
+                          )}
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setSelectedProduct(product);
+                              setShowAlternatives(true);
+                            }}
+                            className="ml-auto"
+                          >
+                            See Alternatives
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
+                  </Card>
                 ))}
               </div>
             ) : (
               <Card className="p-12 text-center">
-                <p className="text-gray-600">No products found. Try a different search.</p>
+                <p className="text-gray-600 mb-4">No products found matching your search.</p>
+                <p className="text-sm text-gray-500">Try searching with different keywords or use the barcode scanner.</p>
               </Card>
             )}
           </div>
-        </section>
-      )}
+        )}
+      </section>
 
-      {/* Featured Products Section */}
-      {searchQuery.length === 0 && (
-        <section className="py-12 px-4 bg-white/50">
-          <div className="container mx-auto">
-            <h3 className="text-2xl font-bold text-gray-900 mb-6">
-              How It Works
-            </h3>
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-              <div className="text-center">
-                <div className="w-12 h-12 rounded-full bg-green-100 flex items-center justify-center mx-auto mb-4 text-lg font-bold text-green-600">
-                  1
-                </div>
-                <h4 className="font-semibold text-gray-900 mb-2">Search</h4>
-                <p className="text-sm text-gray-600">Find any product by name or barcode</p>
+      {/* Alternatives Modal */}
+      {showAlternatives && selectedProduct && (
+        <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
+          <Card className="max-w-2xl w-full max-h-[80vh] overflow-y-auto">
+            <div className="p-6">
+              <div className="flex items-center justify-between mb-6">
+                <h2 className="text-2xl font-bold text-gray-900">Eco-Friendly Alternatives</h2>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setShowAlternatives(false)}
+                  className="h-8 w-8 p-0"
+                >
+                  <X className="w-5 h-5" />
+                </Button>
               </div>
-              <div className="text-center">
-                <div className="w-12 h-12 rounded-full bg-green-100 flex items-center justify-center mx-auto mb-4 text-lg font-bold text-green-600">
-                  2
+
+              <div className="mb-6 p-4 bg-gray-50 rounded-lg border border-gray-200">
+                <p className="text-xs font-semibold text-gray-600 mb-2">ORIGINAL PRODUCT</p>
+                <div className="flex gap-3">
+                  {selectedProduct.imageUrl && (
+                    <img
+                      src={selectedProduct.imageUrl}
+                      alt={selectedProduct.name}
+                      className="w-16 h-16 object-cover rounded"
+                      onError={(e) => {
+                        (e.target as HTMLImageElement).style.display = 'none';
+                      }}
+                    />
+                  )}
+                  <div>
+                    <p className="font-semibold text-gray-900">{selectedProduct.name}</p>
+                    <p className="text-sm text-gray-600">{selectedProduct.brand || 'Unknown Brand'}</p>
+                    <div className="flex items-center gap-2 mt-2">
+                      <div className={`w-8 h-8 rounded-full ${getEcoScoreColor(selectedProduct.ecoScore)} flex items-center justify-center text-white font-bold text-xs`}>
+                        {selectedProduct.ecoScore ?? 'N/A'}
+                      </div>
+                      <span className="text-xs font-semibold text-gray-700">Eco-Score: {getEcoScoreLabel(selectedProduct.ecoScore)}</span>
+                    </div>
+                  </div>
                 </div>
-                <h4 className="font-semibold text-gray-900 mb-2">View Score</h4>
-                <p className="text-sm text-gray-600">See detailed sustainability breakdown</p>
               </div>
-              <div className="text-center">
-                <div className="w-12 h-12 rounded-full bg-green-100 flex items-center justify-center mx-auto mb-4 text-lg font-bold text-green-600">
-                  3
-                </div>
-                <h4 className="font-semibold text-gray-900 mb-2">Find Alternatives</h4>
-                <p className="text-sm text-gray-600">Discover better eco-friendly options</p>
-              </div>
-              <div className="text-center">
-                <div className="w-12 h-12 rounded-full bg-green-100 flex items-center justify-center mx-auto mb-4 text-lg font-bold text-green-600">
-                  4
-                </div>
-                <h4 className="font-semibold text-gray-900 mb-2">Save & Track</h4>
-                <p className="text-sm text-gray-600">Build your sustainable shopping list</p>
+
+              <div className="mb-4">
+                <h3 className="text-lg font-semibold text-gray-900 mb-4">Better Alternatives</h3>
+                {alternativesQuery.isLoading ? (
+                  <div className="flex items-center justify-center py-12">
+                    <div className="animate-spin">
+                      <div className="w-12 h-12 border-4 border-gray-200 border-t-green-500 rounded-full" />
+                    </div>
+                  </div>
+                ) : alternativesQuery.data && alternativesQuery.data.length > 0 ? (
+                  <div className="space-y-4">
+                    {alternativesQuery.data.map((alt) => (
+                      <Card
+                        key={alt.barcode}
+                        className="p-4 border-2 border-green-200 bg-green-50 hover:shadow-md transition-shadow cursor-pointer"
+                        onClick={() => {
+                          handleProductClick(alt.barcode);
+                          setShowAlternatives(false);
+                        }}
+                      >
+                        <div className="flex gap-3">
+                          {alt.imageUrl && (
+                            <img
+                              src={alt.imageUrl}
+                              alt={alt.name}
+                              className="w-16 h-16 object-cover rounded"
+                              onError={(e) => {
+                                (e.target as HTMLImageElement).style.display = 'none';
+                              }}
+                            />
+                          )}
+                          <div className="flex-1">
+                            <h4 className="font-semibold text-gray-900">{alt.name}</h4>
+                            <p className="text-sm text-gray-600">{alt.brand || 'Unknown Brand'}</p>
+                            <div className="flex items-center gap-4 mt-2 flex-wrap">
+                              <div className="flex items-center gap-2">
+                                <div className={`w-8 h-8 rounded-full ${getEcoScoreColor(alt.ecoScore)} flex items-center justify-center text-white font-bold text-xs`}>
+                                  {alt.ecoScore ?? 'N/A'}
+                                </div>
+                                <span className="text-xs font-semibold text-gray-700">{getEcoScoreLabel(alt.ecoScore)}</span>
+                              </div>
+                              {alt.price && (
+                                <span className="text-sm font-semibold text-gray-900">${alt.price}</span>
+                              )}
+                            </div>
+                          </div>
+                          <Button size="sm" className="h-fit">
+                            View
+                          </Button>
+                        </div>
+                      </Card>
+                    ))}
+                  </div>
+                ) : (
+                  <Card className="p-8 text-center bg-gray-50">
+                    <p className="text-gray-600">No better alternatives found for this product.</p>
+                    <p className="text-sm text-gray-500 mt-2">This product already has an excellent eco-score!</p>
+                  </Card>
+                )}
               </div>
             </div>
-          </div>
-        </section>
+          </Card>
+        </div>
       )}
     </div>
   );

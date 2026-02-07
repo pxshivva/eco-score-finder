@@ -32,3 +32,9 @@
 
 ## Bug Fixes
 - [x] Fix "Failed to find alternatives" API error on home page
+
+## New Features
+- [x] Barcode camera scanning for product lookup
+- [x] Enhanced product search with real-time results
+- [x] Fully functional alternatives display on product detail page
+- [x] Search result filtering and sorting
