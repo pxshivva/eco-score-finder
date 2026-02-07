@@ -69,3 +69,10 @@
 - [x] Add price range comparison to alternatives
 - [x] Display similarity metrics (category match, price range, eco-score improvement)
 - [x] Enhance alternatives UI with better product comparison
+
+## Scan History Feature (In Progress)
+- [x] Create scan history utility functions for localStorage management
+- [x] Build ScanHistory UI component to display recent scans
+- [x] Integrate scan history into Home page
+- [x] Add clear history functionality
+- [x] Test scan history with multiple products

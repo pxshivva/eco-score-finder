@@ -9,6 +9,8 @@ import ProductCard from '@/components/ProductCard';
 import BarcodeScanner from '@/components/BarcodeScanner';
 import ProductContributionDialog from '@/components/ProductContributionDialog';
 import { useLocation } from 'wouter';
+import ScanHistory from '@/components/ScanHistory';
+import { addToScanHistory } from '@/lib/scanHistory';
 
 export default function Home() {
   const { user, loading: authLoading, isAuthenticated } = useAuth();
@@ -67,6 +69,20 @@ export default function Home() {
   };
 
   const handleProductClick = (barcode: string) => {
+    if (selectedProduct) {
+      addToScanHistory({
+        barcode: selectedProduct.barcode,
+        name: selectedProduct.name,
+        brand: selectedProduct.brand,
+        ecoScore: selectedProduct.ecoScore,
+        ecoScoreGrade: selectedProduct.ecoScoreGrade,
+        imageUrl: selectedProduct.imageUrl,
+      });
+    }
+    setLocation(`/product/${barcode}`);
+  };
+
+  const handleScanHistorySelect = (barcode: string) => {
     setLocation(`/product/${barcode}`);
   };
 
@@ -381,6 +397,13 @@ export default function Home() {
 
       {selectedProduct?.isContribution && (
         <ProductContributionDialog barcode={selectedProduct.barcode} />
+      )}
+
+      {/* Scan History Section */}
+      {searchQuery.length === 0 && !selectedProduct && (
+        <section className="container mx-auto px-4 py-12">
+          <ScanHistory onProductSelect={handleScanHistorySelect} />
+        </section>
       )}
     </div>
   );
