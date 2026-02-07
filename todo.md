@@ -95,3 +95,8 @@
 ## Error Suppression Fix (Current)
 - [x] Add error suppression for NOT_FOUND errors in error boundary
 - [x] Prevent expected errors from appearing in error tracking
+
+## Scan History Display Fix (Current)
+- [x] Fix scan history items not displaying on home page
+- [x] Ensure products are properly saved to scan history when clicked
+- [x] Display actual product names instead of "Unknown Product"
