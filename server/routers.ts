@@ -7,6 +7,7 @@ import * as db from "./db";
 import { fetchProductFromOpenFoodFacts, searchProductsOpenFoodFacts, findAlternatives } from "./services/openFoodFacts";
 import { TRPCError } from "@trpc/server";
 import { recommendationsRouter } from "./routers/recommendations";
+import { submitProductContribution, validateBarcode, generateContributionUrl } from "./services/contribution";
 
 export const appRouter = router({
   system: systemRouter,
@@ -259,6 +260,47 @@ export const appRouter = router({
 
   // Recommendations procedures
   recommendations: recommendationsRouter,
+
+  // Product contribution procedures
+  contribution: router({
+    submit: publicProcedure
+      .input(z.object({
+        barcode: z.string(),
+        productName: z.string(),
+        brand: z.string().optional(),
+        category: z.string().optional(),
+        imageUrl: z.string().optional(),
+        ingredients: z.string().optional(),
+        nutritionFacts: z.string().optional(),
+        userEmail: z.string().email().optional(),
+        userComment: z.string().optional(),
+      }))
+      .mutation(async ({ input }) => {
+        try {
+          const result = await submitProductContribution(input);
+          return result;
+        } catch (error) {
+          console.error('Error submitting contribution:', error);
+          throw new TRPCError({
+            code: 'INTERNAL_SERVER_ERROR',
+            message: 'Failed to submit contribution',
+          });
+        }
+      }),
+
+    validateBarcode: publicProcedure
+      .input(z.object({ barcode: z.string() }))
+      .query(({ input }) => {
+        const isValid = validateBarcode(input.barcode);
+        return { isValid, message: isValid ? 'Valid barcode' : 'Invalid barcode format' };
+      }),
+
+    getContributionUrl: publicProcedure
+      .input(z.object({ barcode: z.string() }))
+      .query(({ input }) => {
+        return { url: generateContributionUrl(input.barcode) };
+      }),
+  }),
 
   // User preferences procedures
   preferences: router({

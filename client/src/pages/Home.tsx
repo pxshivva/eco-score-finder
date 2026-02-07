@@ -2,11 +2,12 @@ import { useState, useEffect } from 'react';
 import { useAuth } from '@/_core/hooks/useAuth';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
-import { Search, Leaf, TrendingUp, Heart, Loader2, X } from 'lucide-react';
+import { Search, Leaf, TrendingUp, Heart, Loader2, X, AlertCircle } from 'lucide-react';
 import { trpc } from '@/lib/trpc';
 import { getLoginUrl } from '@/const';
 import ProductCard from '@/components/ProductCard';
 import BarcodeScanner from '@/components/BarcodeScanner';
+import ProductContributionDialog from '@/components/ProductContributionDialog';
 import { useLocation } from 'wouter';
 
 export default function Home() {
@@ -50,7 +51,8 @@ export default function Home() {
     } else if (barcodeQuery.isError && scannedBarcode) {
       const errorMessage = barcodeQuery.error?.message || 'Unknown error';
       if (errorMessage.includes('not found') || errorMessage.includes('NOT_FOUND')) {
-        alert(`Product not found in database (Barcode: ${scannedBarcode}). This product may not be in the Open Food Facts database yet. Try searching by product name instead.`);
+        // Show contribution dialog when product not found
+        setSelectedProduct({ barcode: scannedBarcode, name: 'Unknown Product', isContribution: true });
       } else {
         alert(`Error: ${errorMessage}. Please try again.`);
       }
@@ -363,6 +365,10 @@ export default function Home() {
             </div>
           </Card>
         </div>
+      )}
+
+      {selectedProduct?.isContribution && (
+        <ProductContributionDialog barcode={selectedProduct.barcode} />
       )}
     </div>
   );
