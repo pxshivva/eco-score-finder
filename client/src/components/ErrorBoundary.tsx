@@ -18,6 +18,18 @@ class ErrorBoundary extends Component<Props, State> {
   }
 
   static getDerivedStateFromError(error: Error): State {
+    // Suppress expected errors that shouldn't break the app
+    const errorMessage = error?.message || '';
+    const errorStack = error?.stack || '';
+    
+    // Don't show error boundary for expected NOT_FOUND errors from barcode scanning
+    if (errorMessage.includes('Product not found') || 
+        errorMessage.includes('NOT_FOUND') ||
+        errorStack.includes('searchByBarcode')) {
+      console.debug('[ErrorBoundary] Suppressed expected error:', errorMessage);
+      return { hasError: false, error: null };
+    }
+    
     return { hasError: true, error };
   }
 

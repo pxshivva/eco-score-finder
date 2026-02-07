@@ -87,3 +87,11 @@
 ## Error Handling Fix (Current)
 - [x] Suppress "Product not found" errors from error tracking system
 - [x] Improve tRPC error handling for expected NOT_FOUND cases
+
+## Scan History Product Names Fix (Current)
+- [ ] Fix scan history to display actual product names instead of "Unknown Product"
+- [ ] Ensure product data is properly saved when adding to scan history
+
+## Error Suppression Fix (Current)
+- [x] Add error suppression for NOT_FOUND errors in error boundary
+- [x] Prevent expected errors from appearing in error tracking
