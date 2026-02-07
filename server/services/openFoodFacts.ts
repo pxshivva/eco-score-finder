@@ -160,26 +160,59 @@ function calculateCarbonImpact(ecoScore: number): number {
   return Math.round(100 - ecoScore);
 }
 
-/**
- * Find alternative products with similar eco-scores
- */
+function parsePrice(priceStr?: string): number | null {
+  if (!priceStr) return null;
+  const match = priceStr.match(/([\d.]+)/);
+  return match ? parseFloat(match[1]) : null;
+}
+
+function calculatePriceSimilarity(price1?: string, price2?: string): number {
+  const p1 = parsePrice(price1);
+  const p2 = parsePrice(price2);
+  if (!p1 || !p2) return 0.5;
+  if (p1 === 0 || p2 === 0) return 0.5;
+  const ratio = Math.min(p1, p2) / Math.max(p1, p2);
+  return ratio;
+}
+
+function calculateSimilarityScore(
+  originalProduct: EcoScoreData,
+  candidate: EcoScoreData
+): number {
+  const scoreDifference = Math.abs(candidate.ecoScore - originalProduct.ecoScore) / 100;
+  const ecoScoreSimilarity = Math.max(0, 1 - scoreDifference);
+  const priceSimilarity = calculatePriceSimilarity(originalProduct.price, candidate.price);
+  const originalCat = (originalProduct.category || '').toLowerCase();
+  const candidateCat = (candidate.category || '').toLowerCase();
+  const categorySimilarity = originalCat && candidateCat && originalCat.includes(candidateCat.split(',')[0]) ? 1 : 0.5;
+  return ecoScoreSimilarity * 0.4 + priceSimilarity * 0.4 + categorySimilarity * 0.2;
+}
+
 export async function findAlternatives(
   originalProduct: EcoScoreData,
-  minSimilarity = 0.8
+  minSimilarity = 0.6
 ): Promise<EcoScoreData[]> {
   try {
-    // Search for products in the same category
     const category = originalProduct.category || originalProduct.brand || 'products';
-    const searchResults = await searchProductsOpenFoodFacts(category, 20);
+    const searchResults = await searchProductsOpenFoodFacts(category, 30);
 
-    // Filter for similar eco-scores and exclude the original product
-    return searchResults.filter(product => {
-      const scoreDifference = Math.abs(product.ecoScore - originalProduct.ecoScore) / 100;
-      const isSimilar = scoreDifference <= (1 - minSimilarity);
-      const isDifferent = product.barcode !== originalProduct.barcode;
+    const scored = searchResults
+      .filter(product => product.barcode !== originalProduct.barcode)
+      .map(product => ({
+        product,
+        similarity: calculateSimilarityScore(originalProduct, product),
+      }))
+      .filter(({ similarity }) => similarity >= minSimilarity)
+      .sort((a, b) => {
+        const ecoScoreDiffA = b.product.ecoScore - originalProduct.ecoScore;
+        const ecoScoreDiffB = b.product.ecoScore - originalProduct.ecoScore;
+        if (ecoScoreDiffA !== ecoScoreDiffB) return ecoScoreDiffA - ecoScoreDiffB;
+        return b.similarity - a.similarity;
+      })
+      .slice(0, 10)
+      .map(({ product }) => product);
 
-      return isSimilar && isDifferent;
-    });
+    return scored;
   } catch (error) {
     console.error('[OpenFoodFacts] Error finding alternatives:', error);
     return [];

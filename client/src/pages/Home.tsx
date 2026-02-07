@@ -344,7 +344,19 @@ export default function Home() {
                                 <span className="text-xs font-semibold text-gray-700">{getEcoScoreLabel(alt.ecoScore)}</span>
                               </div>
                               {alt.price && (
-                                <span className="text-sm font-semibold text-gray-900">${alt.price}</span>
+                                <div>
+                                  <span className="text-sm font-semibold text-gray-900">${alt.price}</span>
+                                  {selectedProduct.price && (
+                                    <p className="text-xs text-gray-600 mt-1">
+                                      {parseFloat(alt.price) < parseFloat(selectedProduct.price) ? '✓ Cheaper' : 'Similar price'}
+                                    </p>
+                                  )}
+                                </div>
+                              )}
+                              {alt.ecoScore > (selectedProduct.ecoScore || 0) && (
+                                <div className="bg-green-100 text-green-800 px-2 py-1 rounded text-xs font-semibold">
+                                  +{alt.ecoScore - (selectedProduct.ecoScore || 0)} better
+                                </div>
                               )}
                             </div>
                           </div>

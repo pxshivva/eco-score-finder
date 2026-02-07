@@ -63,3 +63,9 @@
 - [x] Create contribution submission modal/dialog
 - [x] Add link to contribution feature in error messages
 - [x] Test contribution workflow end-to-end
+
+## Enhanced Alternatives Feature (In Progress)
+- [x] Improve alternatives matching with category and price filtering
+- [x] Add price range comparison to alternatives
+- [x] Display similarity metrics (category match, price range, eco-score improvement)
+- [x] Enhance alternatives UI with better product comparison
