@@ -147,6 +147,10 @@ export default function Home() {
                   <TrendingUp className="w-5 h-5" />
                   Dashboard
                 </Button>
+                <Button variant="ghost" onClick={() => setLocation('/analytics')} className="gap-2">
+                  <TrendingUp className="w-5 h-5" />
+                  Analytics
+                </Button>
               </>
             ) : (
               <Button asChild>

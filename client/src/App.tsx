@@ -11,6 +11,7 @@ import Dashboard from "./pages/Dashboard";
 import Comparison from "./pages/Comparison";
 import Settings from "./pages/Settings";
 import Recommendations from "./pages/Recommendations";
+import Analytics from "./pages/Analytics";
 
 function Router() {
   // make sure to consider if you need authentication for certain routes
@@ -23,6 +24,7 @@ function Router() {
       <Route path={"/comparison"} component={Comparison} />
       <Route path={"/settings"} component={Settings} />
       <Route path={"/recommendations"} component={Recommendations} />
+      <Route path={"/analytics"} component={Analytics} />
       <Route path={"/404"} component={NotFound} />
       {/* Final fallback route */}
       <Route component={NotFound} />
