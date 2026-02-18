@@ -3,16 +3,20 @@ import { useAuth } from '@/_core/hooks/useAuth';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Leaf, Heart, ArrowLeft, Share2, Plus } from 'lucide-react';
+import { Leaf, Heart, ArrowLeft, Share2, Plus, Copy, Mail, MessageCircle, X } from 'lucide-react';
 import { trpc } from '@/lib/trpc';
 import { useState } from 'react';
 import ProductCard from '@/components/ProductCard';
+import { showSuccessToast, showErrorToast } from '@/lib/toast';
 
 export default function ProductDetail() {
   const { barcode } = useParams<{ barcode: string }>();
   const { user } = useAuth();
   const [, setLocation] = useLocation();
   const [showAddToComparison, setShowAddToComparison] = useState(false);
+  const [showShareDialog, setShowShareDialog] = useState(false);
+  const [shareLink, setShareLink] = useState<string | null>(null);
+  const [isSharing, setIsSharing] = useState(false);
 
   const productQuery = trpc.products.searchByBarcode.useQuery(
     { barcode: barcode || '' },
@@ -89,8 +93,45 @@ export default function ProductDetail() {
 
     if (isFavoriteQuery.data) {
       removeFavoriteMutation.mutate({ productId: product.id! });
+      showSuccessToast('Removed from favorites');
     } else {
       addFavoriteMutation.mutate({ productId: product.id! });
+      showSuccessToast('Added to favorites');
+    }
+  };
+
+  const handleShareProduct = async () => {
+    setIsSharing(true);
+    try {
+      const url = `${window.location.origin}/product/${product?.barcode}`;
+      setShareLink(url);
+      showSuccessToast('Share link generated!');
+    } catch (error) {
+      showErrorToast('Failed to generate share link');
+    } finally {
+      setIsSharing(false);
+    }
+  };
+
+  const handleCopyShareLink = () => {
+    if (shareLink) {
+      navigator.clipboard.writeText(shareLink);
+      showSuccessToast('Link copied to clipboard');
+    }
+  };
+
+  const handleShareViaEmail = () => {
+    if (product) {
+      const subject = encodeURIComponent(`Check out: ${product.name}`);
+      const body = encodeURIComponent(`I found an eco-friendly product!\n\nProduct: ${product.name}\nBrand: ${product.brand || 'N/A'}\nEco-Score: ${product.ecoScore || 'N/A'}\n\nView it here: ${window.location.href}`);
+      window.open(`mailto:?subject=${subject}&body=${body}`);
+    }
+  };
+
+  const handleShareViaTwitter = () => {
+    if (product) {
+      const text = encodeURIComponent(`Check out this eco-friendly product: ${product.name} (Eco-Score: ${product.ecoScore || 'N/A'}) ${window.location.href}`);
+      window.open(`https://twitter.com/intent/tweet?text=${text}`, '_blank');
     }
   };
 
@@ -186,11 +227,16 @@ export default function ProductDetail() {
                   </Button>
 
                   <Button
+                    onClick={() => {
+                      setShowShareDialog(true);
+                      handleShareProduct();
+                    }}
                     variant="outline"
                     className="w-full gap-2"
+                    disabled={isSharing}
                   >
                     <Share2 className="w-5 h-5" />
-                    Share
+                    {isSharing ? 'Generating...' : 'Share'}
                   </Button>
                 </div>
               </div>
@@ -299,6 +345,129 @@ export default function ProductDetail() {
           </div>
         </div>
       </div>
+
+      {/* Share Dialog */}
+      {showShareDialog && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <Card className="w-full max-w-md p-6">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-xl font-bold text-gray-900">Share Product</h2>
+              <button
+                onClick={() => {
+                  setShowShareDialog(false);
+                  setShareLink(null);
+                }}
+                className="text-gray-500 hover:text-gray-700"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {shareLink ? (
+              <div className="space-y-4">
+                <div className="p-4 bg-green-50 rounded-lg border border-green-200">
+                  <p className="text-sm font-medium text-green-900 mb-2">✓ Share link ready!</p>
+                  <div className="flex items-center gap-2 mb-4">
+                    <input
+                      type="text"
+                      value={shareLink}
+                      readOnly
+                      className="flex-1 px-3 py-2 border border-green-300 rounded-lg bg-white text-sm text-gray-900 font-mono"
+                    />
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={handleCopyShareLink}
+                      className="gap-2"
+                    >
+                      <Copy className="w-4 h-4" />
+                      Copy
+                    </Button>
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <p className="text-sm font-medium text-gray-700">Share via:</p>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleShareViaEmail}
+                    className="w-full gap-2 justify-start"
+                  >
+                    <Mail className="w-4 h-4" />
+                    Email
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleShareViaTwitter}
+                    className="w-full gap-2 justify-start"
+                  >
+                    <MessageCircle className="w-4 h-4" />
+                    Twitter
+                  </Button>
+                </div>
+
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    setShowShareDialog(false);
+                    setShareLink(null);
+                  }}
+                  className="w-full"
+                >
+                  Done
+                </Button>
+              </div>
+            ) : (
+              <div className="text-center py-4">
+                <div className="animate-spin inline-block">
+                  <div className="w-6 h-6 border-2 border-gray-300 border-t-green-500 rounded-full" />
+                </div>
+                <p className="text-gray-600 mt-2">Generating share link...</p>
+              </div>
+            )}
+          </Card>
+        </div>
+      )}
+
+      {/* Add to Comparison Dialog */}
+      {showAddToComparison && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <Card className="w-full max-w-md p-6">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-xl font-bold text-gray-900">Add to Comparison</h2>
+              <button
+                onClick={() => setShowAddToComparison(false)}
+                className="text-gray-500 hover:text-gray-700"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <p className="text-gray-600 mb-4">
+              {product?.name} has been added to your comparison list.
+            </p>
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setShowAddToComparison(false);
+                  setLocation('/comparison');
+                }}
+                className="flex-1"
+              >
+                View Comparison
+              </Button>
+              <Button
+                onClick={() => setShowAddToComparison(false)}
+                className="flex-1"
+              >
+                Continue Shopping
+              </Button>
+            </div>
+          </Card>
+        </div>
+      )}
     </div>
   );
 }
