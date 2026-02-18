@@ -1,4 +1,4 @@
-import { eq, and, desc, like, gte, lte } from "drizzle-orm";
+import { eq, and, desc, like, gte, lte, inArray } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
 import { InsertUser, users, products, favorites, comparisons, notifications, userPreferences } from "../drizzle/schema";
 import { ENV } from './_core/env';
@@ -131,7 +131,6 @@ export async function getUserFavorites(userId: number) {
   
   if (productIds.length === 0) return [];
   
-  const { inArray } = require('drizzle-orm');
   return db.select().from(products).where(
     inArray(products.id, productIds)
   );
