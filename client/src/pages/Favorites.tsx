@@ -6,6 +6,7 @@ import { ArrowLeft, Heart } from 'lucide-react';
 import { trpc } from '@/lib/trpc';
 import ProductCard from '@/components/ProductCard';
 import { getLoginUrl } from '@/const';
+import { showSuccessToast, toastMessages } from '@/lib/toast';
 
 export default function Favorites() {
   const { user, isAuthenticated } = useAuth();
@@ -18,6 +19,7 @@ export default function Favorites() {
   const removeFavoriteMutation = trpc.favorites.remove.useMutation({
     onSuccess: () => {
       favoritesQuery.refetch();
+      showSuccessToast(toastMessages.productRemoved);
     },
   });
 
@@ -74,6 +76,9 @@ export default function Favorites() {
             <p className="text-gray-600 mb-8">
               You have {favorites.length} saved product{favorites.length !== 1 ? 's' : ''}.
             </p>
+            <div className="text-sm text-gray-500 mb-6">
+              Total eco-score average: {favorites.length > 0 ? (favorites.reduce((sum, p) => sum + (p.ecoScore || 0), 0) / favorites.length).toFixed(1) : 'N/A'}
+            </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {favorites.map((product) => {

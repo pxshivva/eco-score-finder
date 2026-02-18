@@ -117,3 +117,13 @@
 - [x] Display sustainability improvement metrics
 - [x] Integrate dashboard with navigation
 - [x] Test dashboard with various user data
+
+## Toast Notification System (In Progress)
+- [x] Install Sonner library for toast notifications
+- [x] Create toast utility functions and message constants
+- [x] Integrate toast notifications in Home page (search, barcode, alternatives)
+- [x] Add toast notifications to ScanHistory component (save, remove, clear)
+- [x] Add toast notifications to Favorites page (remove)
+- [x] Add toast notifications to Analytics page (load)
+- [x] Write integration tests for toast system
+- [x] Test toast notifications across all user actions

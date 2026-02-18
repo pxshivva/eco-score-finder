@@ -1,9 +1,10 @@
-import { useEffect, useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Card } from '@/components/ui/card';
 import { LineChart, Line, BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { TrendingUp, Award, Target, Leaf } from 'lucide-react';
 import { getScanHistory } from '@/lib/scanHistory';
 import { calculateDashboardMetrics, calculateSustainabilityImprovement, getTopCategories, type ScanHistoryItem } from '@/lib/dashboardAnalytics';
+import { showInfoToast, toastMessages } from '@/lib/toast';
 
 const COLORS = ['#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#3b82f6', '#ec4899'];
 const GRADE_COLORS: Record<string, string> = {
@@ -28,6 +29,10 @@ export default function Analytics() {
     
     const improvementData = calculateSustainabilityImprovement(history);
     setImprovement(improvementData);
+    
+    if (history.length > 0) {
+      showInfoToast(`Loaded ${history.length} scans from your history`);
+    }
   }, []);
 
   if (!metrics) {
@@ -48,7 +53,7 @@ export default function Analytics() {
           <h1 className="text-3xl font-bold text-gray-900 mb-2">Analytics Dashboard</h1>
           <Card className="p-12 text-center">
             <Leaf className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-            <p className="text-gray-600 text-lg">No scan history yet. Start scanning products to see your sustainability analytics!</p>
+            <p className="text-gray-600 text-lg">{toastMessages.scanHistoryEmpty}</p>
           </Card>
         </div>
       </div>

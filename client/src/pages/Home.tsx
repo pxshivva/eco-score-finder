@@ -11,6 +11,7 @@ import ProductContributionDialog from '@/components/ProductContributionDialog';
 import { useLocation } from 'wouter';
 import ScanHistory from '@/components/ScanHistory';
 import { addToScanHistory } from '@/lib/scanHistory';
+import { showSuccessToast, showErrorToast, showInfoToast, toastMessages } from '@/lib/toast';
 
 export default function Home() {
   const { user, loading: authLoading, isAuthenticated } = useAuth();
@@ -46,11 +47,17 @@ export default function Home() {
     if (searchMutation.data) {
       setSearchResults(searchMutation.data);
       setIsSearching(false);
+      if (searchMutation.data.length > 0) {
+        showSuccessToast(`Found ${searchMutation.data.length} product${searchMutation.data.length !== 1 ? 's' : ''}`);
+      } else {
+        showInfoToast(toastMessages.noResults);
+      }
     }
   }, [searchMutation.data]);
 
   useEffect(() => {
     if (barcodeQuery.data && scannedBarcode) {
+      showSuccessToast(toastMessages.barcodeScanned);
       handleProductClick(scannedBarcode);
       setScannedBarcode(null);
       setIsScanLoading(false);
@@ -58,9 +65,11 @@ export default function Home() {
       const errorMessage = barcodeQuery.error?.message || 'Unknown error';
       if (errorMessage.includes('not found') || errorMessage.includes('NOT_FOUND')) {
         // Show contribution dialog when product not found
+        showInfoToast(toastMessages.productNotFound);
         setSelectedProduct({ barcode: scannedBarcode, name: 'Unknown Product', isContribution: true });
       } else {
         console.error('[Home] Error searching product by barcode:', errorMessage);
+        showErrorToast(toastMessages.barcodeScanFailed);
       }
       setScannedBarcode(null);
       setIsScanLoading(false);
@@ -68,8 +77,12 @@ export default function Home() {
   }, [barcodeQuery.data, barcodeQuery.isError, barcodeQuery.error, scannedBarcode]);
 
   const handleSearch = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setSearchQuery(e.target.value);
-    setIsSearching(true);
+    const query = e.target.value;
+    setSearchQuery(query);
+    if (query.length > 2) {
+      setIsSearching(true);
+      showInfoToast(toastMessages.searchStarted);
+    }
   };
 
   const handleProductClick = (barcode: string) => {
@@ -97,6 +110,7 @@ export default function Home() {
   const handleBarcodeScanned = (barcode: string) => {
     setIsScanLoading(true);
     setScannedBarcode(barcode);
+    showInfoToast(`Scanning barcode: ${barcode}`);
   };
 
   const getEcoScoreColor = (score: number | null | undefined) => {
@@ -267,6 +281,7 @@ export default function Home() {
                               e.stopPropagation();
                               setSelectedProduct(product);
                               setShowAlternatives(true);
+                              showInfoToast('Loading alternatives...');
                             }}
                             className="ml-auto"
                           >

@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Trash2, History, Heart } from 'lucide-react';
 import { getScanHistory, clearScanHistory, removeFromScanHistory, type ScanHistoryItem } from '@/lib/scanHistory';
 import { addToFavorites, removeFromFavorites, isInFavorites } from '@/lib/favorites';
+import { showSuccessToast, showInfoToast, toastMessages } from '@/lib/toast';
 
 interface ScanHistoryProps {
   onProductSelect: (barcode: string) => void;
@@ -58,6 +59,7 @@ export default function ScanHistory({ onProductSelect }: ScanHistoryProps) {
     e.stopPropagation();
     removeFromScanHistory(barcode);
     setHistory(history.filter(item => item.barcode !== barcode));
+    showSuccessToast(toastMessages.productRemoved);
   };
 
   const handleToggleFavorite = (item: ScanHistoryItem, e: React.MouseEvent) => {
@@ -69,6 +71,7 @@ export default function ScanHistory({ onProductSelect }: ScanHistoryProps) {
       const newFavs = new Set(favorites);
       newFavs.delete(item.barcode);
       setFavorites(newFavs);
+      showSuccessToast(toastMessages.productRemoved);
     } else {
       addToFavorites({
         productId: 0,
@@ -82,6 +85,7 @@ export default function ScanHistory({ onProductSelect }: ScanHistoryProps) {
       const newFavs = new Set(favorites);
       newFavs.add(item.barcode);
       setFavorites(newFavs);
+      showSuccessToast(toastMessages.productAdded);
     }
   };
 
@@ -89,6 +93,7 @@ export default function ScanHistory({ onProductSelect }: ScanHistoryProps) {
     if (window.confirm('Are you sure you want to clear all scan history?')) {
       clearScanHistory();
       setHistory([]);
+      showSuccessToast(toastMessages.scanHistoryCleared);
     }
   };
 
@@ -104,7 +109,7 @@ export default function ScanHistory({ onProductSelect }: ScanHistoryProps) {
     return (
       <Card className="p-8 text-center bg-gray-50">
         <History className="w-12 h-12 text-gray-300 mx-auto mb-3" />
-        <p className="text-gray-600 font-medium">No scan history yet</p>
+        <p className="text-gray-600 font-medium">{toastMessages.scanHistoryEmpty}</p>
         <p className="text-sm text-gray-500 mt-2">
           Scanned products will appear here for quick access
         </p>
