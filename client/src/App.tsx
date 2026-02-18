@@ -14,6 +14,7 @@ import Settings from "./pages/Settings";
 import Recommendations from "./pages/Recommendations";
 import Analytics from "./pages/Analytics";
 import BatchComparison from "./pages/BatchComparison";
+import SharedBatch from "./pages/SharedBatch";
 
 function Router() {
   // make sure to consider if you need authentication for certain routes
@@ -25,6 +26,7 @@ function Router() {
       <Route path={"/dashboard"} component={Dashboard} />
       <Route path={"/comparison"} component={Comparison} />
       <Route path={"/batch-comparison"} component={BatchComparison} />
+      <Route path={"/shared/:token"} component={SharedBatch} />
       <Route path={"/settings"} component={Settings} />
       <Route path={"/recommendations"} component={Recommendations} />
       <Route path={"/analytics"} component={Analytics} />

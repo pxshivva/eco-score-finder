@@ -15,6 +15,13 @@
       "when": 1770495512069,
       "tag": "0001_cheerful_tarot",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "5",
+      "when": 1771382927753,
+      "tag": "0002_good_wendell_rand",
+      "breakpoints": true
     }
   ]
 }

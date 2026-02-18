@@ -1,6 +1,6 @@
 import { eq, and, desc, like, gte, lte, inArray } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
-import { InsertUser, users, products, favorites, comparisons, notifications, userPreferences } from "../drizzle/schema";
+import { InsertUser, users, products, favorites, comparisons, notifications, userPreferences, batchShares } from "../drizzle/schema";
 import { ENV } from './_core/env';
 
 let _db: ReturnType<typeof drizzle> | null = null;
@@ -249,5 +249,75 @@ export async function markNotificationAsSent(notificationId: number) {
   if (!db) return false;
   
   await db.update(notifications).set({ sent: true, sentAt: new Date() }).where(eq(notifications.id, notificationId));
+  return true;
+}
+
+// Batch sharing queries
+export async function createBatchShare(userId: number, productBarcodes: string[], title?: string, description?: string, expiresAt?: Date) {
+  const db = await getDb();
+  if (!db) return undefined;
+  
+  // Generate unique share token (base64 encoded random bytes)
+  const shareToken = Buffer.from(Math.random().toString() + Date.now()).toString('base64').substring(0, 32);
+  
+  const result = await db.insert(batchShares).values({
+    userId,
+    shareToken,
+    title: title || 'Batch Comparison',
+    description,
+    productBarcodes,
+    isPublic: true,
+    expiresAt,
+  });
+  
+  return {
+    id: (result as any).insertId as number,
+    shareToken,
+  };
+}
+
+export async function getBatchShareByToken(shareToken: string) {
+  const db = await getDb();
+  if (!db) return undefined;
+  
+  const result = await db.select().from(batchShares).where(eq(batchShares.shareToken, shareToken)).limit(1);
+  
+  if (result.length > 0) {
+    const share = result[0];
+    
+    // Check if expired
+    if (share.expiresAt && new Date(share.expiresAt) < new Date()) {
+      return undefined;
+    }
+    
+    // Increment view count
+    await db.update(batchShares).set({ viewCount: share.viewCount + 1 }).where(eq(batchShares.shareToken, shareToken));
+    
+    return share;
+  }
+  
+  return undefined;
+}
+
+export async function getUserBatchShares(userId: number) {
+  const db = await getDb();
+  if (!db) return [];
+  
+  return db.select().from(batchShares).where(eq(batchShares.userId, userId)).orderBy(desc(batchShares.createdAt));
+}
+
+export async function updateBatchShare(shareId: number, updates: Partial<typeof batchShares.$inferInsert>) {
+  const db = await getDb();
+  if (!db) return false;
+  
+  await db.update(batchShares).set(updates).where(eq(batchShares.id, shareId));
+  return true;
+}
+
+export async function deleteBatchShare(shareId: number) {
+  const db = await getDb();
+  if (!db) return false;
+  
+  await db.delete(batchShares).where(eq(batchShares.id, shareId));
   return true;
 }

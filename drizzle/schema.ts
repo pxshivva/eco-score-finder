@@ -120,3 +120,23 @@ export const userPreferences = mysqlTable("userPreferences", {
 
 export type UserPreference = typeof userPreferences.$inferSelect;
 export type InsertUserPreference = typeof userPreferences.$inferInsert;
+
+/**
+ * Batch Shares table - tracks shareable batch comparisons
+ */
+export const batchShares = mysqlTable("batchShares", {
+  id: int("id").autoincrement().primaryKey(),
+  userId: int("userId").notNull(),
+  shareToken: varchar("shareToken", { length: 64 }).notNull().unique(), // Unique token for URL
+  title: varchar("title", { length: 255 }),
+  description: text("description"),
+  productBarcodes: json("productBarcodes").$type<string[]>().notNull(), // Array of product barcodes
+  isPublic: boolean("isPublic").default(true).notNull(),
+  viewCount: int("viewCount").default(0).notNull(),
+  expiresAt: timestamp("expiresAt"), // Optional expiration date
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export type BatchShare = typeof batchShares.$inferSelect;
+export type InsertBatchShare = typeof batchShares.$inferInsert;

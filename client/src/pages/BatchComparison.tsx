@@ -2,9 +2,10 @@ import { useState } from 'react';
 import { useLocation } from 'wouter';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
-import { ArrowLeft, Download, Trash2, X, Zap } from 'lucide-react';
+import { ArrowLeft, Download, Trash2, X, Zap, Share2, Copy, Mail, MessageCircle } from 'lucide-react';
 import { useBatchScan } from '@/contexts/BatchScanContext';
 import { showSuccessToast, showErrorToast } from '@/lib/toast';
+import { trpc } from '@/lib/trpc';
 
 export default function BatchComparison() {
   const [, setLocation] = useLocation();
@@ -17,6 +18,13 @@ export default function BatchComparison() {
     getWorstProduct 
   } = useBatchScan();
   const [sortBy, setSortBy] = useState<'name' | 'ecoScore' | 'price'>('ecoScore');
+  const [showShareDialog, setShowShareDialog] = useState(false);
+  const [shareTitle, setShareTitle] = useState('My Batch Comparison');
+  const [shareDescription, setShareDescription] = useState('');
+  const [shareLink, setShareLink] = useState<string | null>(null);
+  const [isSharing, setIsSharing] = useState(false);
+
+  const createBatchShareMutation = trpc.batchShare.create.useMutation();
 
   if (scannedProducts.length === 0) {
     return (
@@ -79,6 +87,49 @@ export default function BatchComparison() {
       clearScannedProducts();
       showSuccessToast('All products cleared');
       setLocation('/');
+    }
+  };
+
+  const handleCreateShare = async () => {
+    setIsSharing(true);
+    try {
+      const result = await createBatchShareMutation.mutateAsync({
+        productBarcodes: scannedProducts.map(p => p.barcode),
+        title: shareTitle,
+        description: shareDescription,
+      });
+      
+      if (result.shareToken) {
+        const url = `${window.location.origin}/shared/${result.shareToken}`;
+        setShareLink(url);
+        showSuccessToast('Batch shared successfully!');
+      }
+    } catch (error) {
+      showErrorToast('Failed to create share link');
+    } finally {
+      setIsSharing(false);
+    }
+  };
+
+  const handleCopyShareLink = () => {
+    if (shareLink) {
+      navigator.clipboard.writeText(shareLink);
+      showSuccessToast('Link copied to clipboard');
+    }
+  };
+
+  const handleShareViaEmail = () => {
+    if (shareLink) {
+      const subject = encodeURIComponent(`Check out my batch comparison: ${shareTitle}`);
+      const body = encodeURIComponent(`I found some great products to compare! Check out my batch comparison:\n\n${shareLink}\n\nDescription: ${shareDescription}`);
+      window.open(`mailto:?subject=${subject}&body=${body}`);
+    }
+  };
+
+  const handleShareViaTwitter = () => {
+    if (shareLink) {
+      const text = encodeURIComponent(`Check out my eco-friendly product batch comparison! ${shareLink}`);
+      window.open(`https://twitter.com/intent/tweet?text=${text}`, '_blank');
     }
   };
 
@@ -187,6 +238,15 @@ export default function BatchComparison() {
             </select>
           </div>
           <div className="flex items-center gap-2">
+            <Button
+              variant="default"
+              size="sm"
+              onClick={() => setShowShareDialog(true)}
+              className="gap-2"
+            >
+              <Share2 className="w-4 h-4" />
+              Share
+            </Button>
             <Button
               variant="outline"
               size="sm"
@@ -297,6 +357,124 @@ export default function BatchComparison() {
                 </div>
               </Card>
             )}
+          </div>
+        )}
+
+        {/* Share Dialog */}
+        {showShareDialog && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+            <Card className="w-full max-w-md p-6">
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-xl font-bold text-gray-900">Share Batch Comparison</h2>
+                <button
+                  onClick={() => {
+                    setShowShareDialog(false);
+                    setShareLink(null);
+                  }}
+                  className="text-gray-500 hover:text-gray-700"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              {!shareLink ? (
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Title</label>
+                    <input
+                      type="text"
+                      value={shareTitle}
+                      onChange={(e) => setShareTitle(e.target.value)}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:border-green-500 focus:ring-2 focus:ring-green-100 focus:outline-none"
+                      placeholder="My Batch Comparison"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Description (optional)</label>
+                    <textarea
+                      value={shareDescription}
+                      onChange={(e) => setShareDescription(e.target.value)}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:border-green-500 focus:ring-2 focus:ring-green-100 focus:outline-none text-sm"
+                      placeholder="Add a description..."
+                      rows={3}
+                    />
+                  </div>
+                  <Button
+                    onClick={handleCreateShare}
+                    disabled={isSharing}
+                    className="w-full gap-2"
+                  >
+                    {isSharing ? (
+                      <>
+                        <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                        Creating...
+                      </>
+                    ) : (
+                      <>
+                        <Share2 className="w-4 h-4" />
+                        Create Share Link
+                      </>
+                    )}
+                  </Button>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  <div className="p-4 bg-green-50 rounded-lg border border-green-200">
+                    <p className="text-sm font-medium text-green-900 mb-2">✓ Share link created!</p>
+                    <div className="flex items-center gap-2 mb-4">
+                      <input
+                        type="text"
+                        value={shareLink}
+                        readOnly
+                        className="flex-1 px-3 py-2 border border-green-300 rounded-lg bg-white text-sm text-gray-900 font-mono"
+                      />
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={handleCopyShareLink}
+                        className="gap-2"
+                      >
+                        <Copy className="w-4 h-4" />
+                        Copy
+                      </Button>
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <p className="text-sm font-medium text-gray-700">Share via:</p>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={handleShareViaEmail}
+                      className="w-full gap-2 justify-start"
+                    >
+                      <Mail className="w-4 h-4" />
+                      Email
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={handleShareViaTwitter}
+                      className="w-full gap-2 justify-start"
+                    >
+                      <MessageCircle className="w-4 h-4" />
+                      Twitter
+                    </Button>
+                  </div>
+
+                  <Button
+                    variant="outline"
+                    onClick={() => {
+                      setShowShareDialog(false);
+                      setShareLink(null);
+                    }}
+                    className="w-full"
+                  >
+                    Done
+                  </Button>
+                </div>
+              )}
+            </Card>
           </div>
         )}
       </div>

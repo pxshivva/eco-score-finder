@@ -302,6 +302,110 @@ export const appRouter = router({
       }),
   }),
 
+  // Batch sharing procedures
+  batchShare: router({
+    create: protectedProcedure
+      .input(z.object({
+        productBarcodes: z.array(z.string()),
+        title: z.string().optional(),
+        description: z.string().optional(),
+        expiresAt: z.date().optional(),
+      }))
+      .mutation(async ({ ctx, input }) => {
+        try {
+          const result = await db.createBatchShare(
+            ctx.user.id,
+            input.productBarcodes,
+            input.title,
+            input.description,
+            input.expiresAt
+          );
+          return { success: true, shareToken: result?.shareToken, id: result?.id };
+        } catch (error) {
+          console.error('Error creating batch share:', error);
+          throw new TRPCError({
+            code: 'INTERNAL_SERVER_ERROR',
+            message: 'Failed to create batch share',
+          });
+        }
+      }),
+
+    getByToken: publicProcedure
+      .input(z.object({ shareToken: z.string() }))
+      .query(async ({ input }) => {
+        try {
+          const share = await db.getBatchShareByToken(input.shareToken);
+          if (!share) {
+            throw new TRPCError({
+              code: 'NOT_FOUND',
+              message: 'Batch share not found or expired',
+            });
+          }
+          return share;
+        } catch (error) {
+          console.error('Error fetching batch share:', error);
+          if (error instanceof TRPCError) throw error;
+          throw new TRPCError({
+            code: 'INTERNAL_SERVER_ERROR',
+            message: 'Failed to fetch batch share',
+          });
+        }
+      }),
+
+    list: protectedProcedure.query(async ({ ctx }) => {
+      try {
+        const shares = await db.getUserBatchShares(ctx.user.id);
+        return shares;
+      } catch (error) {
+        console.error('Error fetching batch shares:', error);
+        throw new TRPCError({
+          code: 'INTERNAL_SERVER_ERROR',
+          message: 'Failed to fetch batch shares',
+        });
+      }
+    }),
+
+    update: protectedProcedure
+      .input(z.object({
+        shareId: z.number(),
+        title: z.string().optional(),
+        description: z.string().optional(),
+        isPublic: z.boolean().optional(),
+      }))
+      .mutation(async ({ ctx, input }) => {
+        try {
+          const updates: any = {};
+          if (input.title !== undefined) updates.title = input.title;
+          if (input.description !== undefined) updates.description = input.description;
+          if (input.isPublic !== undefined) updates.isPublic = input.isPublic;
+          
+          await db.updateBatchShare(input.shareId, updates);
+          return { success: true };
+        } catch (error) {
+          console.error('Error updating batch share:', error);
+          throw new TRPCError({
+            code: 'INTERNAL_SERVER_ERROR',
+            message: 'Failed to update batch share',
+          });
+        }
+      }),
+
+    delete: protectedProcedure
+      .input(z.object({ shareId: z.number() }))
+      .mutation(async ({ ctx, input }) => {
+        try {
+          await db.deleteBatchShare(input.shareId);
+          return { success: true };
+        } catch (error) {
+          console.error('Error deleting batch share:', error);
+          throw new TRPCError({
+            code: 'INTERNAL_SERVER_ERROR',
+            message: 'Failed to delete batch share',
+          });
+        }
+      }),
+  }),
+
   // User preferences procedures
   preferences: router({
     get: protectedProcedure.query(async ({ ctx }) => {
